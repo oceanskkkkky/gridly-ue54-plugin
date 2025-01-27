@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2021 LocalizeDirect AB
+// Copyright (c) 2021 LocalizeDirect AB
 
 #include "AssetTypeActions_GridlyDataTable.h"
 
@@ -32,7 +32,10 @@ public:
 	FGridlyDataTableCommands() :
 		TCommands<FGridlyDataTableCommands>("GridlyDataTableEditor",
 			NSLOCTEXT("Gridly", "GridlyDataTableEditor", "Gridly Data Table Editor"), NAME_None,
-			FEditorStyle::GetStyleSetName())
+// HS BEGIN: Fixed Warning
+//			FEditorStyle::GetStyleSetName())
+			FAppStyle::GetAppStyleSetName())
+// HS END
 	{
 	}
 
@@ -133,19 +136,34 @@ void FAssetTypeActions_GridlyDataTable::OpenAssetEditor(const TArray<UObject*>& 
 		DataTablesListText.Indent();
 		for (UDataTable* Table : InvalidDataTables)
 		{
-			const FName ResolvedRowStructName = Table->GetRowStructName();
+// HS BEGIN: Fixed Warning
+//			const FName ResolvedRowStructName = Table->GetRowStructName();
+//			DataTablesListText.AppendLineFormat(LOCTEXT("DataTable_MissingRowStructListEntry", "* {0} (Row Structure: {1})"),
+//				FText::FromString(Table->GetName()), FText::FromName(ResolvedRowStructName));
+			const FString ResolvedRowStructName = Table->GetRowStructPathName().ToString();
+
 			DataTablesListText.AppendLineFormat(LOCTEXT("DataTable_MissingRowStructListEntry", "* {0} (Row Structure: {1})"),
-				FText::FromString(Table->GetName()), FText::FromName(ResolvedRowStructName));
+				FText::FromString(Table->GetName()), FText::FromString(ResolvedRowStructName));
+// HS END
 		}
 
 		FText Title = LOCTEXT("DataTable_MissingRowStructTitle", "Continue?");
+// HS BEGIN: Fixed Warning
+// 		const EAppReturnType::Type DlgResult = FMessageDialog::Open(
+// 			EAppMsgType::YesNoCancel,
+// 			FText::Format(LOCTEXT("DataTable_MissingRowStructMsg",
+// 					"The following Data Tables are missing their row structure and will not be editable.\n\n{0}\n\nDo you want to open these data tables?"),
+// 				DataTablesListText.ToText()),
+// 			&Title
+// 			);
 		const EAppReturnType::Type DlgResult = FMessageDialog::Open(
 			EAppMsgType::YesNoCancel,
 			FText::Format(LOCTEXT("DataTable_MissingRowStructMsg",
-					"The following Data Tables are missing their row structure and will not be editable.\n\n{0}\n\nDo you want to open these data tables?"),
+				"The following Data Tables are missing their row structure and will not be editable.\n\n{0}\n\nDo you want to open these data tables?"),
 				DataTablesListText.ToText()),
-			&Title
-			);
+			Title
+// HS END
+		);
 
 		switch (DlgResult)
 		{
@@ -400,6 +418,7 @@ void FAssetTypeActions_GridlyDataTable::ExportToGridly(UGridlyDataTable* DataTab
 				             else
 				             {
 					             ExportDataTableToGridlySlowTask.Reset();
+								 this->ExportRequestQueue.Empty();
 					             const FString Content = HttpResponse->GetContentAsString();
 					             const FString ErrorReason =
 						             FString::Printf(TEXT("Error: %d, reason: %s"), HttpResponse->GetResponseCode(), *Content);
