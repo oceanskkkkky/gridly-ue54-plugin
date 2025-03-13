@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2021 LocalizeDirect AB
+// Copyright (c) 2021 LocalizeDirect AB
 
 #include "GridlyLocalizedTextConverter.h"
 
@@ -115,6 +115,8 @@ FString ConditionArchiveStrForPO(const FString& InStr)
 bool FGridlyLocalizedTextConverter::WritePoFile(const TArray<FPolyglotTextData>& PolyglotTextDatas, const FString& TargetCulture,
 	const FString& Path)
 {
+	UGridlyGameSettings* GameSettings = GetMutableDefault<UGridlyGameSettings>();
+	const bool bUseCombinedNamespaceKey = GameSettings->bUseCombinedNamespaceId;
 	TArray<FString> Lines;
 	int numOfLines = 0;
 	TArray<TCHAR> CharsToReplace = { TEXT('\n'), TEXT('\r'), TEXT('\t'), TEXT('"'), TEXT('\\') };
@@ -125,8 +127,13 @@ bool FGridlyLocalizedTextConverter::WritePoFile(const TArray<FPolyglotTextData>&
 
 		if (PolyglotTextDatas[i].GetLocalizedString(TargetCulture, TargetString))
 		{
-			Lines.Add(FString::Printf(TEXT("msgctxt \"%s,%s\""), *PolyglotTextDatas[i].GetNamespace(),
-				*PolyglotTextDatas[i].GetKey()));
+			if (bUseCombinedNamespaceKey) {
+				Lines.Add(FString::Printf(TEXT("msgctxt \"%s,%s\""), *PolyglotTextDatas[i].GetNamespace(),
+					*PolyglotTextDatas[i].GetKey()));
+			}
+			else {
+				Lines.Add(FString::Printf(TEXT("msgctxt \",%s\""), *PolyglotTextDatas[i].GetKey()));
+			}
 
 			
 			FString NativeString = PolyglotTextDatas[i].GetNativeString().ReplaceCharWithEscapedChar(&CharsToReplace);
@@ -139,8 +146,13 @@ bool FGridlyLocalizedTextConverter::WritePoFile(const TArray<FPolyglotTextData>&
 			Lines.Add(TEXT(""));
 		}		
 		else {
-			Lines.Add(FString::Printf(TEXT("msgctxt \"%s,%s\""), *PolyglotTextDatas[i].GetNamespace(),
-				*PolyglotTextDatas[i].GetKey()));
+			if (bUseCombinedNamespaceKey) {
+				Lines.Add(FString::Printf(TEXT("msgctxt \"%s,%s\""), *PolyglotTextDatas[i].GetNamespace(),
+					*PolyglotTextDatas[i].GetKey()));
+			}
+			else {
+				Lines.Add(FString::Printf(TEXT("msgctxt \",%s\""), *PolyglotTextDatas[i].GetKey()));
+			}
 
 
 			FString NativeString = PolyglotTextDatas[i].GetNativeString().ReplaceCharWithEscapedChar(&CharsToReplace);
