@@ -223,7 +223,27 @@ bool FGridlyDataTableImporterJSON::ReadStruct(const TSharedRef<FJsonObject>& InP
 		if (BaseProp->ArrayDim == 1)
 		{
 			void* Data = BaseProp->ContainerPtrToValuePtr<void>(InStructData, 0);
+if HS_GRIDLY_ALLOW_ARBITARY_STRUCT_IN_TABLE		
+			if (!ReadStructEntry(ParsedPropertyValue.ToSharedRef(), InRowName, ColumnName, InStructData, BaseProp, Data))
+			{
+				// Attempt to see if the stored string is a json string, and if so, reparse that
+				if (ParsedPropertyValue->Type == EJson::String)
+				{
+ 					TSharedPtr<FJsonValue> parsedRowStruct;
+					FString maybeJsonString;
+					ParsedPropertyValue->TryGetString(maybeJsonString);
+ 					{
+ 						const TSharedRef<TJsonReader<TCHAR>> JsonReader = TJsonReaderFactory<TCHAR>::Create(maybeJsonString);
+						if (FJsonSerializer::Deserialize(JsonReader, parsedRowStruct) )
+ 						{
+							ReadStructEntry(parsedRowStruct.ToSharedRef(), InRowName, ColumnName, InStructData, BaseProp, Data);
+ 						}
+ 					}
+				}
+			}
+#else
 			ReadStructEntry(ParsedPropertyValue.ToSharedRef(), InRowName, ColumnName, InStructData, BaseProp, Data);
+#endif //HS_GRIDLY_ALLOW_ARBITARY_STRUCT_IN_TABLE		
 		}
 		else
 		{
