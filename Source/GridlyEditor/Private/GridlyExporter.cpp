@@ -7,6 +7,10 @@
 #include "Dom/JsonValue.h"
 #include "Internationalization/PolyglotTextData.h"
 #include "LocTextHelper.h"
+#if HS_GRIDLY_ALLOW_ARBITARY_STRUCT_IN_TABLE
+#include "JsonObjectConverter.h"
+#endif
+
 
 bool FGridlyExporter::ConvertToJson(const TArray<FPolyglotTextData>& PolyglotTextDatas,
 	bool bIncludeTargetTranslations, const TSharedPtr<FLocTextHelper>& LocTextHelperPtr, FString& OutJsonString)
@@ -263,6 +267,120 @@ bool FGridlyExporter::ConvertToJson(const UGridlyDataTable* GridlyDataTable, FSt
 							const bool PropertyValue = BoolProp->GetPropertyValue(Data);
 							JsonWriter->WriteValue("value", PropertyValue);
 						}
+// This code will allow you to have arbitary stucts within an array
+#if HS_GRIDLY_ALLOW_ARBITARY_STRUCT_IN_TABLE
+						else if (const FArrayProperty* ArrayProp = CastField<const FArrayProperty>(BaseProp))
+						{
+							FString arrayJson;
+							auto SubJsonWriter = TJsonWriterFactory<TCHAR, TPrettyJsonPrintPolicy<TCHAR>>::Create(&arrayJson);
+							SubJsonWriter->WriteArrayStart();
+
+							FScriptArrayHelper ArrayHelper(ArrayProp, Data);
+							for (int32 ArrayIndex = 0; ArrayIndex < ArrayHelper.Num(); ++ArrayIndex)
+							{
+								void* ArrayData = ArrayHelper.GetRawPtr(ArrayIndex);
+
+								if (const FEnumProperty* innerEnumProp = CastField<const FEnumProperty>(ArrayProp->Inner))
+								{
+									// TODO
+									checkNoEntry();
+								}
+								else if (const FNumericProperty* innerNumProp = CastField<const FNumericProperty>(ArrayProp->Inner))
+								{
+									// TODO
+									checkNoEntry();
+								}
+								else if (const FBoolProperty* innerBoolProp = CastField<const FBoolProperty>(ArrayProp->Inner))
+								{
+									// TODO
+									checkNoEntry();
+								}
+								else if (const FStructProperty* innerStructProp = CastField<const FStructProperty>(ArrayProp->Inner))
+								{					
+									FString objAsJson;
+									FJsonObjectConverter::UStructToFormattedJsonObjectString<TCHAR, TPrettyJsonPrintPolicy>(innerStructProp->Struct, ArrayData, objAsJson);
+									SubJsonWriter->WriteRawJSONValue(objAsJson);
+								}
+								else
+								{
+									// TODO
+									checkNoEntry();
+								}
+							}
+							
+							SubJsonWriter->WriteArrayEnd();
+							if (SubJsonWriter->Close())
+							{
+								JsonWriter->WriteValue("value", arrayJson);
+							}
+						}
+#endif //HS_GRIDLY_ALLOW_ARBITARY_STRUCT_IN_TABLE
+// This code will allow you to read multioptions from Gridly into a Set Property						
+#if HS_GRIDLY_ALLOW_SET_PROPERTYTYPE_IN_TABLE
+						else if (const FSetProperty* SetProp = CastField<const FSetProperty>(BaseProp))
+						{
+							FString setJson;
+							auto SubJsonWriter = TJsonWriterFactory<TCHAR, TPrettyJsonPrintPolicy<TCHAR>>::Create(&setJson);
+							SubJsonWriter->WriteArrayStart();
+
+							FScriptSetHelper SetHelper(SetProp, Data);
+							
+							for (FScriptSetHelper::FIterator SetIter = SetHelper.CreateIterator(); SetIter; ++SetIter)
+							{
+								uint8* SetData = SetHelper.GetElementPtr(SetIter);
+
+								if (const FEnumProperty* innerEnumProp = CastField<const FEnumProperty>(SetProp->ElementProp))
+								{
+									// TODO
+									checkNoEntry();	
+								}
+								else if (const FNumericProperty* innerNumProp = CastField<const FNumericProperty>(SetProp->ElementProp))
+								{
+									if (innerNumProp->IsEnum())
+									{
+										const FString PropertyValue = DataTableUtils::GetPropertyValueAsString(innerNumProp, SetData, DTExportFlags);
+										SubJsonWriter->WriteValue(PropertyValue);
+									}
+									else if (innerNumProp->IsInteger())
+									{
+										const int64 PropertyValue = innerNumProp->GetSignedIntPropertyValue(SetData);
+										SubJsonWriter->WriteValue(PropertyValue);
+									}
+									else
+									{
+										const double PropertyValue = innerNumProp->GetFloatingPointPropertyValue(SetData);
+										SubJsonWriter->WriteValue(PropertyValue);
+									}
+								}
+								else if (const FBoolProperty* innerBoolProp = CastField<const FBoolProperty>(SetProp->ElementProp))
+								{
+									// TODO
+									checkNoEntry();
+								}
+								else if (const FStructProperty* innerStructProp = CastField<const FStructProperty>(SetProp->ElementProp))
+								{
+									// Untested, but should work.  If you hit this, try uncommenting out the checkNoEntry and checking the result is as you'd expect
+									checkNoEntry(); 
+									FString objAsJson;
+									FJsonObjectConverter::UStructToFormattedJsonObjectString<TCHAR, TPrettyJsonPrintPolicy>(innerStructProp->Struct, SetData, objAsJson);
+									SubJsonWriter->WriteRawJSONValue(objAsJson);
+								}
+								else
+								{
+									// Untested, but should work.  If you hit this, try uncommenting out the checkNoEntry and checking the result is as you'd expect
+									checkNoEntry();
+									const FString PropertyValue = DataTableUtils::GetPropertyValueAsString(innerStructProp, SetData, DTExportFlags);
+									SubJsonWriter->WriteValue(PropertyValue);
+								}
+							}
+
+							SubJsonWriter->WriteArrayEnd();
+							if (SubJsonWriter->Close())
+							{
+								JsonWriter->WriteRawJSONValue(TEXT("value"), setJson);
+							}
+						}
+#endif //HS_GRIDLY_ALLOW_SET_PROPERTYTYPE_IN_TABLE
 						else
 						{
 							const FString PropertyValue = DataTableUtils::GetPropertyValueAsString(BaseProp,
